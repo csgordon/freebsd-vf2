@@ -2,8 +2,33 @@
 
 set -euo pipefail
 
+case $1 in
+	visionfive2)
+		BOARD="vf2"
+		echo Handling StarFive VisionFive 2
+		echo CPU: Starfive JH7110
+		;;
+	duos)
+		BOARD="duos"
+		echo Handling Milk-V Duo S
+		echo CPU: Sophgo CV181x
+		;;
+	rv2)
+		BOARD="duos"
+		echo Handling Milk-V Duo S
+		echo CPU: Sophgo CV181x
+		;;
+	*)
+		echo Missing or unrecognized board name ${0}
+		exit 1
+		;;
+esac
+
+
+# TODO: Automatically fetch latest snapshot unless overridden
 BASE_URL=https://download.freebsd.org/snapshots/riscv/riscv64/ISO-IMAGES/15.0
-BASE_IMAGE=FreeBSD-15.0-CURRENT-riscv-riscv64-20250606-fa02d9fceab7-277727-memstick.img
+#BASE_IMAGE=FreeBSD-15.0-CURRENT-riscv-riscv64-20250606-fa02d9fceab7-277727-memstick.img
+BASE_IMAGE=FreeBSD-15.0-PRERELEASE-riscv-riscv64-20250828-579bb6c2cd77-279924-memstick.img
 
 DTB_FILE=jh7110-starfive-visionfive-2-v1.3b.dtb
 
@@ -35,6 +60,7 @@ dd if=$BASE_IMAGE of=root.img bs=512 $(gpart show -l /dev/md0 | head -3 | tail -
 mdconfig -d -u 0
 
 
+# TODO: select DTBs with flags
 # mount the esp image to put the dtb in
 echo 'Adding VisionFive2 dtb to EFI image...'
 mdconfig -a -t vnode -f efi.img -u 0
