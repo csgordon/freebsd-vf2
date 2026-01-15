@@ -14,9 +14,9 @@ case $1 in
 		echo CPU: Sophgo CV181x
 		;;
 	rv2)
-		BOARD="duos"
-		echo Handling Milk-V Duo S
-		echo CPU: Sophgo CV181x
+		BOARD="rv2"
+		echo Handling OrangePi RV2 
+		echo CPU: K1
 		;;
 	*)
 		echo Missing or unrecognized board name ${0}
@@ -27,21 +27,13 @@ esac
 
 # TODO: Automatically fetch latest snapshot unless overridden
 BASE_URL=https://download.freebsd.org/snapshots/riscv/riscv64/ISO-IMAGES/15.0
-#BASE_IMAGE=FreeBSD-15.0-CURRENT-riscv-riscv64-20250606-fa02d9fceab7-277727-memstick.img
-BASE_IMAGE=FreeBSD-15.0-PRERELEASE-riscv-riscv64-20250828-579bb6c2cd77-279924-memstick.img
-
-DTB_FILE=jh7110-starfive-visionfive-2-v1.3b.dtb
+BASE_IMAGE=FreeBSD-15.0-STABLE-riscv-riscv64-20260108-7b718d24968f-281755-memstick.img
 
 # get base image
 if [ ! -f $BASE_IMAGE ] ; then
   curl -LOC - $BASE_URL/$BASE_IMAGE.xz
   xz -kd $BASE_IMAGE.xz
 fi
-
-# get dtb
-#if [ ! -f $DTB_FILE ] ; then
-#  curl -LOC - https://github.com/starfive-tech/VisionFive2/releases/download/VF2_v2.5.0/$DTB_FILE
-#fi
 
 
 # attach the image, so we can extract the partition info
@@ -59,18 +51,21 @@ dd if=$BASE_IMAGE of=root.img bs=512 $(gpart show -l /dev/md0 | head -3 | tail -
 # unmount it
 mdconfig -d -u 0
 
+mkdir -p localmnt
+
 
 # TODO: select DTBs with flags
-# mount the esp image to put the dtb in
-echo 'Adding VisionFive2 dtb to EFI image...'
-mdconfig -a -t vnode -f efi.img -u 0
-mount_msdosfs /dev/md0 localmnt
-mkdir -p localmnt/dtb/starfive
-cp -v $DTB_FILE localmnt/dtb/starfive/jh7110-starfive-visionfive-2-v1.3b.dtb
-mkdir -p localmnt/dtb/milkv
-cp -v cv181x*.dtb localmnt/dtb/milkv/
-umount /dev/md0
-mdconfig -d -u 0
+# mount the efi image to put the dtb in
+#echo 'Adding VisionFive2 dtb to EFI image...'
+#mdconfig -a -t vnode -f efi.img -u 0
+#mount_msdosfs /dev/md0 localmnt
+#mkdir -p localmnt/dtb/starfive
+#cp -v $DTB_FILE localmnt/dtb/starfive/jh7110-starfive-visionfive-2-v1.3b.dtb
+#mkdir -p localmnt/dtb/milkv
+#cp -v cv181x*.dtb localmnt/dtb/milkv/
+#umount -f /dev/md0
+#mdconfig -d -u 0
+echo 'Skipping custom DTBs'
 
 
 # now mount the extracted image
@@ -96,8 +91,8 @@ echo "If this is done, or you're not patching, press enter to continue"
 read ans
 echo 'Continuing...'
 
-# and unmount
-umount localmnt
+# and unmount. 15.0 seems to think there's still something accessing the mount here, so we force unmount, which still flushes.
+umount -f localmnt
 mdconfig -d -u 0
 
 
@@ -126,14 +121,14 @@ echo 'Copying over files for the bootloader...'
 cp -rv localmnt/s/boot/ localmnt/t/boot
 cp -v root.img.uzip localmnt/t
 
-# unmount it all
-umount localmnt/s
-umount localmnt/t
+# unmount it all; force-unmounting on 15, which again, still flushes
+umount -f localmnt/s
+umount -f localmnt/t
 mdconfig -d -u 0
 mdconfig -d -u 1
 
 
 # build the final image
 echo 'Building final image...'
-mkimg -s gpt -f raw -p efi/esp:=efi.img -p freebsd-ufs/boot:=boot.img -o vf2.img
+mkimg -s gpt -f raw -p efi/esp:=efi.img -p freebsd-ufs/boot:=boot.img -o rv2.img
 echo 'Done.'
